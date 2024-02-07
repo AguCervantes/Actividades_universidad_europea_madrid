@@ -1,0 +1,95 @@
+---
+title: "3_Ejercicio_Final_Agustin_Cervantes"
+author: "Agustin Cervantes"
+date: "2024-01-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Análisis del Estado de Resultados del Banco de la República Oriental del Uruguay
+
+Bajo la normativa del Banco Central del Uruguay, todas las instituciones financieras deben presentar mensualmente sus resultados contables y financieros, accesibles al público en la página del Banco Central (https://www.bcu.gub.uy/Servicios-Financieros-SSF/Paginas/Boletin-SSF.aspx). 
+
+Para este análisis, se seleccionó la información financiera de noviembre 2023 del Banco República ("BROU"), el más relevante en el mercado uruguayo. 
+
+# Objetivo
+
+Ordenar la información del Estado de Resultados para facilitar el análisis de ingresos y costos. Instalamos los paquetes necesarios:
+
+```{r librerias}
+library("readxl")
+library("ggplot2")
+library("dplyr", warn.conflicts = FALSE)
+```
+
+## Lectura del DataFrame
+
+Vemos que los datos presentan desorden y no están limpios:
+
+```{r lectura, include=FALSE}
+Reporte_brou <- read_excel("G:\\Mi unidad\\Master\\Módulo 3\\R\\EstadosBROU.xlsx", sheet = "Resultados", range = "A9:D42")
+```
+
+```{r datos, echo=FALSE}
+head(read_excel("G:\\Mi unidad\\Master\\Módulo 3\\R\\EstadosBROU.xlsx", sheet = "Resultados", range = "A9:D42"), 6)
+```
+
+## Preparación de datos 
+
+Se realiza una limpieza para estructurar los datos adecuadamente:
+
+```{r limpieza, include=TRUE, warning=FALSE}
+#Veo que las cuentas contables están identificadas con un número al inicio, por lo que las intento identificar de esa forma:
+Reporte_brou$Filtrado <- as.numeric(substr(Reporte_brou$...1, 1, 1)) 
+Reporte_brou_filtrado <- Reporte_brou[!is.na(Reporte_brou$Filtrado) & is.numeric(Reporte_brou$Filtrado), , drop = FALSE]
+
+#Luego de filtrado, me quedo con las columnas que considero relevantes y cambio el nombre para hacerlo más comprensible:
+Reporte_brou_aj <- Reporte_brou_filtrado[ , c("...1","Total")] 
+names(Reporte_brou_aj)[1] <- "Concepto_cuenta" 
+Reporte_brou_aj$Concepto_cuenta <- trimws(substr(Reporte_brou_aj$Concepto_cuenta, 3, nchar(Reporte_brou_aj$Concepto_cuenta)))
+
+#Por último, para generar un mejor entendimiento, clasifico las cuentas entre Ingreso o Gasto:
+Reporte_brou_aj$Tipo_cuenta <- ifelse(Reporte_brou_aj$Total>0, "Ingreso", "Gasto")
+```
+
+```{r ver_limpio, echo=FALSE}
+head(Reporte_brou_aj, 6)
+```
+
+## Estructura de costos
+
+Nos enfocamos en los gastos, generando un ranking. Se destaca que el 29,21% del gasto total corresponde a Gastos de Personal, indicando que las remuneraciones al personal constituyen el principal gasto:
+
+```{r grafico_gastos, include=TRUE}
+#Primero tomo únicamente los gastos del reporte: 
+Analisis_Gasto <- Reporte_brou_aj[Reporte_brou_aj$Tipo_cuenta == "Gasto", ]
+
+#Le agrego una columna de porcentaje de gasto sobre el total y lo ordeno en función de eso: 
+Analisis_Gasto$Porcentaje <- round(Analisis_Gasto$Total/sum(Analisis_Gasto$Total)*100, 2)
+Analisis_Gasto <- Analisis_Gasto[order(Analisis_Gasto$Porcentaje, decreasing = TRUE), ]
+```
+
+```{r visual, echo=FALSE}
+head(Analisis_Gasto[ ,c("Concepto_cuenta", "Total", "Porcentaje")], 6)
+```
+
+## Rentabilidad
+
+Se analiza la rentabilidad, comparando ingresos y costos: 
+
+```{r abs_result, include=TRUE, warning=FALSE}
+#Debo pasar los importes negativos a positivos para el análisis:
+Reporte_graf2 <- mutate(Reporte_brou_aj, Total = abs(Total))
+
+#Genero el gráfico:
+ggplot(Reporte_graf2, aes(x = Tipo_cuenta, y = Total, fill = Tipo_cuenta)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Tipo_cuenta", y = "Total")
+```
+
+# Conclusiones
+
+Analizamos un conjunto de datos contables que se encontraban desorganizados y verificamos cuestiones de gestión, como ser la rentabilidad y la estructura de costes. 
